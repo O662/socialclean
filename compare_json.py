@@ -27,9 +27,9 @@ def load_json_file(filepath: str) -> Any:
         sys.exit(1)
 
 
-def compare_values(val1: Any, val2: Any, path: str = "") -> List[str]:
+def compare_values(val1: Any, val2: Any, path: str = "") -> Tuple[int, List[str]]:
     """
-    Recursively compare two values and return a list of differences.
+    Recursively compare two values and return differences.
     
     Args:
         val1: First value to compare
@@ -37,16 +37,18 @@ def compare_values(val1: Any, val2: Any, path: str = "") -> List[str]:
         path: Current path in the JSON structure (for reporting)
     
     Returns:
-        List of difference descriptions
+        Tuple of (count of differences, list of formatted difference lines)
     """
-    differences = []
+    diff_count = 0
+    diff_lines = []
     
     # If types are different
     if type(val1) != type(val2):
-        differences.append(f"  {path}: Type mismatch - {type(val1).__name__} vs {type(val2).__name__}")
-        differences.append(f"    File 1: {json.dumps(val1)}")
-        differences.append(f"    File 2: {json.dumps(val2)}")
-        return differences
+        diff_count = 1
+        diff_lines.append(f"  {path}: Type mismatch - {type(val1).__name__} vs {type(val2).__name__}")
+        diff_lines.append(f"    File 1: {json.dumps(val1)}")
+        diff_lines.append(f"    File 2: {json.dumps(val2)}")
+        return diff_count, diff_lines
     
     # Compare dictionaries
     if isinstance(val1, dict):
@@ -56,49 +58,59 @@ def compare_values(val1: Any, val2: Any, path: str = "") -> List[str]:
         # Keys only in first dict
         only_in_1 = keys1 - keys2
         for key in sorted(only_in_1):
-            differences.append(f"  {path}.{key}: Only in File 1")
-            differences.append(f"    Value: {json.dumps(val1[key])}")
+            diff_count += 1
+            diff_lines.append(f"  {path}.{key}: Only in File 1")
+            diff_lines.append(f"    Value: {json.dumps(val1[key])}")
         
         # Keys only in second dict
         only_in_2 = keys2 - keys1
         for key in sorted(only_in_2):
-            differences.append(f"  {path}.{key}: Only in File 2")
-            differences.append(f"    Value: {json.dumps(val2[key])}")
+            diff_count += 1
+            diff_lines.append(f"  {path}.{key}: Only in File 2")
+            diff_lines.append(f"    Value: {json.dumps(val2[key])}")
         
         # Compare common keys
         common_keys = keys1 & keys2
         for key in sorted(common_keys):
             new_path = f"{path}.{key}" if path else key
-            differences.extend(compare_values(val1[key], val2[key], new_path))
+            sub_count, sub_lines = compare_values(val1[key], val2[key], new_path)
+            diff_count += sub_count
+            diff_lines.extend(sub_lines)
     
     # Compare lists
     elif isinstance(val1, list):
         if len(val1) != len(val2):
-            differences.append(f"  {path}: List length differs - {len(val1)} vs {len(val2)}")
+            diff_count += 1
+            diff_lines.append(f"  {path}: List length differs - {len(val1)} vs {len(val2)}")
         
         # Compare elements at same indices
         for i in range(min(len(val1), len(val2))):
             new_path = f"{path}[{i}]"
-            differences.extend(compare_values(val1[i], val2[i], new_path))
+            sub_count, sub_lines = compare_values(val1[i], val2[i], new_path)
+            diff_count += sub_count
+            diff_lines.extend(sub_lines)
         
         # Show extra elements
         if len(val1) > len(val2):
             for i in range(len(val2), len(val1)):
-                differences.append(f"  {path}[{i}]: Extra element in File 1")
-                differences.append(f"    Value: {json.dumps(val1[i])}")
+                diff_count += 1
+                diff_lines.append(f"  {path}[{i}]: Extra element in File 1")
+                diff_lines.append(f"    Value: {json.dumps(val1[i])}")
         elif len(val2) > len(val1):
             for i in range(len(val1), len(val2)):
-                differences.append(f"  {path}[{i}]: Extra element in File 2")
-                differences.append(f"    Value: {json.dumps(val2[i])}")
+                diff_count += 1
+                diff_lines.append(f"  {path}[{i}]: Extra element in File 2")
+                diff_lines.append(f"    Value: {json.dumps(val2[i])}")
     
     # Compare primitive values
     else:
         if val1 != val2:
-            differences.append(f"  {path}: Value differs")
-            differences.append(f"    File 1: {json.dumps(val1)}")
-            differences.append(f"    File 2: {json.dumps(val2)}")
+            diff_count = 1
+            diff_lines.append(f"  {path}: Value differs")
+            diff_lines.append(f"    File 1: {json.dumps(val1)}")
+            diff_lines.append(f"    File 2: {json.dumps(val2)}")
     
-    return differences
+    return diff_count, diff_lines
 
 
 def compare_json_files(file1: str, file2: str) -> None:
@@ -119,16 +131,16 @@ def compare_json_files(file1: str, file2: str) -> None:
     data2 = load_json_file(file2)
     
     # Compare the data
-    differences = compare_values(data1, data2)
+    diff_count, diff_lines = compare_values(data1, data2)
     
     # Display results
-    if not differences:
+    if diff_count == 0:
         print("✓ The JSON files are identical!")
     else:
-        print(f"✗ Found {len(differences)} difference(s):")
+        print(f"✗ Found {diff_count} difference(s):")
         print()
-        for diff in differences:
-            print(diff)
+        for line in diff_lines:
+            print(line)
     
     print()
 

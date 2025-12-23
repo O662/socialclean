@@ -59,19 +59,19 @@ Comparing JSON files:
   File 1: examples/file1.json
   File 2: examples/file2.json
 
-✗ Found differences:
+✗ Found 5 difference(s):
 
-  age: Value differs
-    File 1: 30
-    File 2: 31
+  address.country: Only in File 2
+    Value: "USA"
   address.city: Value differs
     File 1: "Springfield"
     File 2: "Chicago"
-  address.country: Only in File 2
-    Value: "USA"
   address.zip: Value differs
     File 1: "62701"
     File 2: "60601"
+  age: Value differs
+    File 1: 30
+    File 2: 31
   hobbies[1]: Value differs
     File 1: "gaming"
     File 2: "cooking"
