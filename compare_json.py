@@ -43,7 +43,7 @@ def compare_values(val1: Any, val2: Any, path: str = "") -> Tuple[int, List[str]
     diff_lines = []
     
     # If types are different
-    if type(val1) != type(val2):
+    if type(val1) is not type(val2):
         diff_count = 1
         diff_lines.append(f"  {path}: Type mismatch - {type(val1).__name__} vs {type(val2).__name__}")
         diff_lines.append(f"    File 1: {json.dumps(val1)}")
@@ -59,14 +59,16 @@ def compare_values(val1: Any, val2: Any, path: str = "") -> Tuple[int, List[str]
         only_in_1 = keys1 - keys2
         for key in sorted(only_in_1):
             diff_count += 1
-            diff_lines.append(f"  {path}.{key}: Only in File 1")
+            key_path = f"{path}.{key}" if path else key
+            diff_lines.append(f"  {key_path}: Only in File 1")
             diff_lines.append(f"    Value: {json.dumps(val1[key])}")
         
         # Keys only in second dict
         only_in_2 = keys2 - keys1
         for key in sorted(only_in_2):
             diff_count += 1
-            diff_lines.append(f"  {path}.{key}: Only in File 2")
+            key_path = f"{path}.{key}" if path else key
+            diff_lines.append(f"  {key_path}: Only in File 2")
             diff_lines.append(f"    Value: {json.dumps(val2[key])}")
         
         # Compare common keys
