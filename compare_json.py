@@ -8,7 +8,7 @@ This script compares two JSON files and displays the differences between them.
 import json
 import sys
 import argparse
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, List, Tuple
 
 
 def load_json_file(filepath: str) -> Any:
