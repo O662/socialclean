@@ -3,6 +3,7 @@
 JSON File Comparison Tool
 
 This script compares two JSON files and displays the differences between them.
+Optimized for Instagram follower/following data.
 """
 
 import json
@@ -25,6 +26,113 @@ def load_json_file(filepath: str) -> Any:
     except Exception as e:
         print(f"Error reading '{filepath}': {e}", file=sys.stderr)
         sys.exit(1)
+
+
+def extract_usernames(data: Any) -> dict:
+    """
+    Extract usernames/values from Instagram follower/following JSON data.
+    Handles both array and object (with relationships_following key) formats.
+    Excludes accounts with "__deleted__" in the username.
+    
+    Args:
+        data: The loaded JSON data
+    
+    Returns:
+        Dictionary with usernames as keys and hrefs as values
+    """
+    usernames = {}
+    
+    # Handle object with relationships_following key
+    if isinstance(data, dict) and 'relationships_following' in data:
+        data = data['relationships_following']
+    
+    # Handle array of entries
+    if isinstance(data, list):
+        for entry in data:
+            if isinstance(entry, dict):
+                username = None
+                href = None
+                
+                # Try to get from title field first (most direct)
+                if 'title' in entry and entry['title']:
+                    username = entry['title']
+                
+                # Get href from string_list_data
+                if 'string_list_data' in entry:
+                    string_list = entry['string_list_data']
+                    if isinstance(string_list, list) and len(string_list) > 0:
+                        item = string_list[0]
+                        if isinstance(item, dict):
+                            if not username and 'value' in item:
+                                username = item['value']
+                            if 'href' in item:
+                                href = item['href']
+                
+                # Store if we have a username and it's not deleted
+                if username and '__deleted__' not in username:
+                    usernames[username] = href
+    
+    return usernames
+
+
+def compare_username_lists(file1: str, file2: str) -> None:
+    """
+    Extract and compare usernames from Instagram follower/following JSON files.
+    
+    Args:
+        file1: Path to the first JSON file
+        file2: Path to the second JSON file
+    """
+    import os
+    
+    # Get just the filenames
+    name1 = os.path.basename(file1)
+    name2 = os.path.basename(file2)
+    
+    print(f"Comparing Instagram data:")
+    print(f"  File 1: {name1}")
+    print(f"  File 2: {name2}")
+    print()
+    
+    # Load both JSON files
+    data1 = load_json_file(file1)
+    data2 = load_json_file(file2)
+    
+    # Extract usernames with hrefs
+    usernames1 = extract_usernames(data1)
+    usernames2 = extract_usernames(data2)
+    
+    # Find differences
+    only_in_1 = sorted(set(usernames1.keys()) - set(usernames2.keys()))
+    only_in_2 = sorted(set(usernames2.keys()) - set(usernames1.keys()))
+    in_both = sorted(set(usernames1.keys()) & set(usernames2.keys()))
+    
+    # Display results
+    print(f"{name1} total: {len(usernames1)} accounts")
+    print(f"{name2} total: {len(usernames2)} accounts")
+    print(f"In both files: {len(in_both)} accounts")
+    print()
+    
+    if only_in_1:
+        print(f"✗ Only in {name1} ({len(only_in_1)} accounts):")
+        for username in only_in_1:
+            href = usernames1[username] if usernames1[username] else "N/A"
+            href = href.replace("/_u/", "/")
+            print(f"  {username} - {href}")
+        print()
+    
+    if only_in_2:
+        print(f"✗ Only in {name2} ({len(only_in_2)} accounts):")
+        for username in only_in_2:
+            href = usernames2[username] if usernames2[username] else "N/A"
+            href = href.replace("/_u/", "/")
+            print(f"  {username} - {href}")
+        print()
+    
+    if not only_in_1 and not only_in_2:
+        print("✓ All usernames are identical!")
+    
+    print()
 
 
 def compare_values(val1: Any, val2: Any, path: str = "") -> Tuple[int, List[str]]:
@@ -150,22 +258,27 @@ def compare_json_files(file1: str, file2: str) -> None:
 def main():
     """Main entry point for the script."""
     parser = argparse.ArgumentParser(
-        description='Compare two JSON files and display their differences.',
+        description='Compare two JSON files and display their differences. Optimized for Instagram follower/following data.',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
 Examples:
   %(prog)s file1.json file2.json
-  %(prog)s data/old.json data/new.json
+  %(prog)s examples/followers_1.json examples/following.json
+  %(prog)s --values data/old.json data/new.json
         '''
     )
     
     parser.add_argument('file1', help='First JSON file to compare')
     parser.add_argument('file2', help='Second JSON file to compare')
+    parser.add_argument('--values', action='store_true', help='Extract and compare only values (usernames) from Instagram data')
     parser.add_argument('--version', action='version', version='%(prog)s 1.0')
     
     args = parser.parse_args()
     
-    compare_json_files(args.file1, args.file2)
+    if args.values:
+        compare_username_lists(args.file1, args.file2)
+    else:
+        compare_json_files(args.file1, args.file2)
 
 
 if __name__ == '__main__':
